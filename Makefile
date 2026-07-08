@@ -11,7 +11,7 @@ MD2PDF := ../ConWeave-Reproduction/.venv/bin/python ../ConWeave-Reproduction/.ve
 
 default: report.pdf
 
-report.pdf: README.md
+report.pdf: report.md
 	$(DYLD) $(MD2PDF) -i $< -o $@
 
 .PHONY: clean
