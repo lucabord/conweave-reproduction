@@ -128,7 +128,9 @@ presented and discussed in S4.1.
 
 # 4. Experiment Result
 
-**How a simulation run works.** For each (scheme, flow-control, load)
+### **How a simulation run works.** 
+
+For each (scheme, flow-control, load)
 combination: (1) `traffic_gen.py` generates a flow arrival trace following
 the AliStorage CDF; (2) `run.py` writes a configuration file and launches the
 NS-3 simulation, which records one line per completed flow (size, start time,
@@ -137,31 +139,34 @@ analysis scripts (`analysis/plot_fct.py`), which read the raw per-flow FCT
 files and generate the FCT-slowdown figures; `fctAnalysis.py` computes the
 aggregate summary statistics (Table 1).
 
-**Statistics.** TODO.
+### **Statistics.** 
+TODO.
 
-**How FCT slowdown is computed.** The NS-3 output records, for each completed
+### **How FCT slowdown is computed.**
+
+The NS-3 output records, for each completed
 flow: its size, start time, actual completion time, and the *standalone* FCT,
 the time the same flow would take on an otherwise empty network. FCT slowdown
 = actual FCT / standalone FCT, clamped to a minimum of 1.0. Only flows
 starting after warm-up and finishing before cool-down are counted.
 
+
 ## 4.1 Reproduced Figures and Comparison
 
-We first show the original figures from the paper (Figure 1), then our
-reproduced counterparts, at both 50 % and 80 % load.
+In this section, we evaluate the reproduction of the core protocol behavior by comparing our simulated results against the original baselines established in the paper. The benchmark focuses on Flow Completion Time (FCT) slowdown across varied traffic loads ($50\%$ and $80\%$) under both Lossless and Lossy network fabrics.To validate the consistency of the reproduction, the original figures from the paper are presented first, serving as the benchmark for the subsequent evaluation of our generated results.
+
+### Original Baseline Results
 
 <center>
   <div style="display:inline-block; width:45%;">
     <img alt="Original paper Figure 12"
          src="figures/paper_fig12_original.png"
          style="width:100%" />
-    <p>Figure 1(a) - Paper Figure 12 (original)</p>
   </div>
   <div style="display:inline-block; width:45%; padding-left:1em">
     <img alt="Original paper Figure 13"
          src="figures/paper_fig13_original.png"
          style="width:100%" />
-    <p>Figure 1(b) - Paper Figure 13 (original).</p>
   </div>
 </center>
 
@@ -170,50 +175,33 @@ reproduced counterparts, at both 50 % and 80 % load.
     <img alt="Original paper Figure 14"
          src="figures/paper_fig14_original.jpeg"
          style="width:100%" />
-    <p>Figure 1(c) - Paper Figure 14 (original).</p>
   </div>
 </center>
 
-**Lossless RDMA (paper Figure 12).** Figures 2–5 reproduce the four panels of
-the paper's Figure 12: average and p99 FCT slowdown vs flow size, at 50 % and
-80 % load.
+### Reproduced Performance Metrics.
 
-<center>
-  <div style="display:inline-block; width:45%;">
-    <img alt="Reproduced Fig 12 average, Lossless, 50% load"
-         src="figures/Full_Second_try/AVG_TOPO_leaf_spine_128_100G_OS2_LOAD_50_FC_Lossless.png"
-         style="width:33.3%" />
-    <p>Figure 2: Average FCT slowdown vs flow size (Lossless RDMA, 50 % load).
-    Corresponds to Figure 12(a) in the paper.</p>
-  </div>
-  <div style="display:inline-block; width:45%; padding-left:1em">
-    <img alt="Reproduced Fig 12 p99, Lossless, 50% load"
-         src="figures/Full_Second_try/P99_TOPO_leaf_spine_128_100G_OS2_LOAD_50_FC_Lossless.png"
-         style="width:33.3%" />
-    <p>Figure 3: p99 FCT slowdown vs flow size (Lossless RDMA, 50 % load).
-    Corresponds to Figure 12(b) in the paper.</p>
-  </div>
-</center>
+<p>From left to right: (a) Average FCT slowdown at $50\%$ load (corresponds to Fig. 12(a) in the paper); (b) $99^{\text{th}}$ percentile (p99) FCT slowdown at $50\%$ load (corresponds to Fig. 12(b)); (c) Average FCT slowdown at $80\%$ load (corresponds to Fig. 12(c))</p>
 
-<center>
-  <div style="display:inline-block; width:45%;">
-    <img alt="Reproduced Fig 12 average, Lossless, 80% load"
-         src="figures/Full_Second_try/AVG_TOPO_leaf_spine_128_100G_OS2_LOAD_80_FC_Lossless.png"
-         style="width:33.3%" />
-    <p>Figure 4: Average FCT slowdown vs flow size (Lossless RDMA, 80 % load).
-    Corresponds to Figure 12(c) in the paper.</p>
-  </div>
-  <div style="display:inline-block; width:45%; padding-left:1em">
-    <img alt="Reproduced Fig 12 p99, Lossless, 80% load"
-         src="figures/Full_Second_try/P99_TOPO_leaf_spine_128_100G_OS2_LOAD_80_FC_Lossless.png"
-         style="width:33.3%" />
-    <p>Figure 5: p99 FCT slowdown vs flow size (Lossless RDMA, 80 % load).
-    Corresponds to Figure 12(d) in the paper.</p>
-  </div>
-</center>
+<p align="center" width="100%">
+    <img width="33%" alt="Reproduced Fig 12 average, Lossless, 50% load"
+         src="figures/Full_Second_try/AVG_TOPO_leaf_spine_128_100G_OS2_LOAD_50_FC_Lossless.png">
+    <img width="33%" alt="Reproduced Fig 12 p99, Lossless, 50% load"
+         src="figures/Full_Second_try/P99_TOPO_leaf_spine_128_100G_OS2_LOAD_50_FC_Lossless.png">
+    <img width="33%" alt="Reproduced Fig 12 average, Lossless, 80% load"
+         src="figures/Full_Second_try/AVG_TOPO_leaf_spine_128_100G_OS2_LOAD_80_FC_Lossless.png">
+   <img width="33%" alt="Reproduced Fig 12 p99, Lossless, 80% load"
+         src="figures/Full_Second_try/P99_TOPO_leaf_spine_128_100G_OS2_LOAD_80_FC_Lossless.png">     
+  
+</p>
 
-*Table 1 — FCT slowdown under Lossless RDMA (50 % load), over all completed
-flows. Lower is better; 1.0 is ideal.*
+
+
+### 4.2 Quantitative Deviations and Qualitative Alignment
+
+ConWeave outperforms every other scheme on all metrics. The gains are largest
+at the **99th percentile** (-51 %), which is the metric most relevant to
+tail-sensitive RDMA workloads.
+
 
 | Scheme | Avg | p99 |
 |---|:---:|:---:|
@@ -223,20 +211,26 @@ flows. Lower is better; 1.0 is ideal.*
 | **ConWeave** | **1.47** | **5.35** |
 | *ConWeave vs ECMP* | *-24 %* | *-51 %* |
 
-ConWeave outperforms every other scheme on all metrics. The gains are largest
-at the **99th percentile** (-51 %), which is the metric most relevant to
-tail-sensitive RDMA workloads.
+*Table 1 — FCT slowdown under Lossless RDMA (50 % load), over all completed
+flows. Lower is better; 1.0 is ideal.*
+
+
+
 
 The scheme ordering matches the paper: ECMP is worst because it keeps each
 flow on a single fixed path; CONGA and LetFlow spread traffic better but still
 reorder packets; ConWeave reroutes for balance *and* restores order in-network.
+
+### Deviation reasons and quality of reproduction
 
 Our improvements (-24/-51 %) are smaller than the paper's (-42/-67 %). This is
 expected: we simulate 0.1 s of traffic (the artifact default), which likely
 corresponds to a shorter effective horizon than the paper used. Trends and
 relative ordering are identical - the reproduction is valid.
 
-**At 80 % load** (Figures 4-5) the picture sharpens dramatically, exactly as
+**At 80 % load** 
+
+(Figures 4-5) the picture sharpens dramatically, exactly as
 in the paper's Figure 12(c)-(d): absolute slowdowns grow for every scheme
 (the network is much more congested), but the separation between schemes
 grows. ECMP and LetFlow sit at an average slowdown of roughly 7 with a p99
@@ -245,46 +239,32 @@ near 40; CONGA improves to roughly 4.5 / 26; ConWeave stays lowest at roughly
 heavier the load, the more valuable congestion-aware rerouting with in-network
 reordering becomes.
 
-**IRN flow control (paper Figure 13).** Under IRN (which replaces Go-Back-N
+**IRN flow control (paper Figure 13).**
+
+Under IRN (which replaces Go-Back-N
 with selective retransmission), absolute slowdowns decrease for all schemes,
 since the transport can recover from reordering without discarding packets.
 The performance gaps between schemes narrow, but **ConWeave still leads on
 every metric**. Figures 6-9 reproduce the four panels of the paper's
 Figure 13.
 
-<center>
-  <div style="display:inline-block; width:45%;">
-    <img alt="Reproduced Fig 13 average, IRN, 50% load"
-         src="figures/Full_Second_try/AVG_TOPO_leaf_spine_128_100G_OS2_LOAD_50_FC_IRN.png"
-         style="width:100%" />
-    <p>Figure 6: Average FCT slowdown vs flow size (IRN, 50 % load).
-    Corresponds to Figure 13(a) in the paper.</p>
-  </div>
-  <div style="display:inline-block; width:45%; padding-left:1em">
-    <img alt="Reproduced Fig 13 p99, IRN, 50% load"
-         src="figures/Full_Second_try/P99_TOPO_leaf_spine_128_100G_OS2_LOAD_50_FC_IRN.png"
-         style="width:100%" />
-    <p>Figure 7: p99 FCT slowdown vs flow size (IRN, 50 % load).
-    Corresponds to Figure 13(b) in the paper.</p>
-  </div>
-</center>
+<p align="center" width="100%">
+    <img width="33%" alt="Reproduced Fig 13 average, IRN, 50% load"
+         src="figures/Full_Second_try/AVG_TOPO_leaf_spine_128_100G_OS2_LOAD_50_FC_IRN.png">
+    <img width="33%" alt="Reproduced Fig 13 p99, IRN, 50% load"
+         src="figures/Full_Second_try/P99_TOPO_leaf_spine_128_100G_OS2_LOAD_50_FC_IRN.png">
+    <img width="33%" alt="Reproduced Fig 13 average, IRN, 80% load"
+         src="figures/Full_Second_try/AVG_TOPO_leaf_spine_128_100G_OS2_LOAD_80_FC_IRN.png">
+   <img width="33%" alt="Reproduced Fig 13 p99, IRN, 80% load"
+         src="figures/Full_Second_try/P99_TOPO_leaf_spine_128_100G_OS2_LOAD_80_FC_IRN.png">     
+  
+</p>
 
-<center>
-  <div style="display:inline-block; width:45%;">
-    <img alt="Reproduced Fig 13 average, IRN, 80% load"
-         src="figures/Full_Second_try/AVG_TOPO_leaf_spine_128_100G_OS2_LOAD_80_FC_IRN.png"
-         style="width:100%" />
-    <p>Figure 8: Average FCT slowdown vs flow size (IRN, 80 % load).
-    Corresponds to Figure 13(c) in the paper.</p>
-  </div>
-  <div style="display:inline-block; width:45%; padding-left:1em">
-    <img alt="Reproduced Fig 13 p99, IRN, 80% load"
-         src="figures/Full_Second_try/P99_TOPO_leaf_spine_128_100G_OS2_LOAD_80_FC_IRN.png"
-         style="width:100%" />
-    <p>Figure 9: p99 FCT slowdown vs flow size (IRN, 80 % load).
+<p>Figure 6: Average FCT slowdown vs flow size (IRN, 50 % load).
+    Corresponds to Figure 13(a) in the paper.Figure 7: p99 FCT slowdown vs flow size (IRN, 50 % load).
+    Corresponds to Figure 13(b) in the paper.Figure 8: Average FCT slowdown vs flow size (IRN, 80 % load).
+    Corresponds to Figure 13(c) in the paper.Figure 9: p99 FCT slowdown vs flow size (IRN, 80 % load).
     Corresponds to Figure 13(d) in the paper.</p>
-  </div>
-</center>
 
 At 50 % load the scheme ordering is unchanged from the Lossless case, ECMP
 and LetFlow worst, CONGA intermediate, ConWeave best - with ConWeave's
