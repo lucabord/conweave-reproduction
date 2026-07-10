@@ -1,9 +1,12 @@
 # Replicating: "Network Load Balancing with In-network Reordering Support for RDMA"
 
 **Team Members:**
-Luca Bordin (luca1.bordin@mail.polimi.it)
-Mattia Menegale (mattia.menegale@polimi.it)
-Youssef — (TBD)
+
+Luca Bordin (luca.bordin@mail.polimi.it)
+
+Mattia Menegale (mattia.menegale@mail.polimi.it)
+
+Youssef El aamraoui (youssef.elaamraoui@mail.polimi.it)
 
 ---
 
@@ -18,51 +21,35 @@ report and figures for our reproduction of the
 ConWeave NS-3 artifact (https://github.com/conweave-project/conweave-ns3).
 
 ---
+# Introduction
 
-# 1. Introduction
+Datacenter networks rely on load balancing to keep traffic moving fast and prevent delays: traffic must be spread across many equal-cost paths that connect any two servers.
 
-**The problem.** Datacenter networks rely on load balancing to keep traffic
-moving fast and prevent delays: traffic must be spread across many
-equal-cost paths that connect any two servers. For RDMA traffic, however,
-load balancing is quite hard. RDMA (Remote Direct Memory Access) lets
-servers transfer data directly between their memories, bypassing the CPU,
-and is the standard transport for storage and machine-learning workloads in
-modern datacenters. However, RDMA network cards (RNICs) require packets to
-arrive **in order**.
-RoCEv2 (RDMA over Converged Ethernet), the most common RDMA transport, uses Go-Back-N error recovery: a single out-of-order packet causes the receiver to discard everything that
-came after it and request a full retransmission, collapsing throughput.
+For RDMA traffic, hitting that goal is unusually hard, because RDMA cannot tolerate the one technique that makes fine-grained load balancing possible: rerouting a flow's packets while it's in flight.
 
-**Why existing load balancers fail.** The simplest approach, ECMP (Equal-Cost Multi-Path), assigns each flow to one fixed path, safe for RDMA (no reordering) but creates hot-spots
-when multiple large flows share a link. Smarter schemes like CONGA or LetFlow
-reroute traffic mid-flow to avoid congestion, but doing so inevitably delivers
-some packets out of order, exactly what RDMA cannot handle. Network operators
-must choose between good load balance and RDMA safety, not both.
+RDMA (Remote Direct Memory Access) lets one server's NIC (RNIC) write directly into another server's memory, with the OS kernel and CPU on both ends left out of the data path entirely. That's what makes RDMA fast enough to be the default transport for storage traffic (e.g., NVMe over Fabrics) and distributed ML training (e.g., gradient exchange between GPUs) in modern datacenters. The same design is also what makes RDMA fragile. On Ethernet fabrics, RDMA is carried by RoCEv2 (RDMA over Converged Ethernet v2), which reuses the InfiniBand transport's loss-recovery scheme: Go-Back-N (GBN) ARQ. Under GBN, the receiver expects every packet in exact sequence; the moment one packet is missing or out of order, everything that arrived after it is discarded, and the sender must retransmit the entire window from that point, not just the packet that actually went astray. A single misordered packet can therefore stall a flow for a full round trip and inflate its completion time, even when nothing was actually lost.
 
-**ConWeave's solution.** ConWeave eliminates this trade-off by handling
-reordering *inside the network*. It reroutes traffic for optimal
-load balance (like CONGA), but the destination Top-of-Rack (ToR) switch
-**reorders packets before delivering them to the RNIC**. Out-of-order packets
-are held in per-flow **Virtual Output Queues (VOQs)** and released in the
-correct sequence. The source ToR tags each packet with timing metadata and
-probes path round-trip times so the destination knows how long to wait for
-missing packets before giving up.
-From the RNIC's perspective, packets always arrive in order, the entire
-reordering mechanism is transparent to the application.
-ConWeave requires programmable switches (the paper uses Intel Tofino2) and
-adds a small header tag per packet.
+### **Why existing load balancers fail?**
 
-**Paper's main claims.** (1) Even minimal reordering triggers destructive
-behavior in RNICs; (2) ConWeave's VOQ state fits within switch memory limits;
-(3) a Tofino2 prototype operates at line rate; and (4) NS-3 simulations show
-up to **42.3 %** lower average flow completion time (FCT) and **66.8 %**
-lower 99th-percentile FCT compared to state-of-the-art load balancers.
+The simplest approach, ECMP (Equal-Cost Multi-Path), assigns each flow to one fixed path, safe for RDMA (no reordering) but creates hot-spots when multiple large flows share a link. Smarter schemes like CONGA or LetFlow reroute traffic mid-flow to avoid congestion, but doing so inevitably delivers some packets out of order, exactly what RDMA cannot handle. Network operators must choose between good load balance and RDMA safety, not both.
 
-**Scope of this report.** First, we reproduce the NS-3 FCT-slowdown results
-(Figures 12 and 13), which compare ECMP, CONGA, LetFlow and ConWeave under both
-Lossless RDMA and IRN flow control at 50 % and 80 % load, plus the
-uplink-imbalance CDF from Figure 14; this is covered in S4. Then, in S5, we go
-beyond the paper with our own experiments, testing how ConWeave behaves under
-conditions the paper does not explore (switch buffer size and grey failures).
+### **ConWeave's solution.** 
+
+ConWeave eliminates this trade-off by handling reordering inside the network. It reroutes traffic for optimal load balance (like CONGA), but the destination Top-of-Rack (ToR) switch reorders packets before delivering them to the RNIC. Out-of-order packets are held in per-flow Virtual Output Queues (VOQs) and released in the correct sequence. The source ToR tags each packet with timing metadata and probes path round-trip times so the destination knows how long to wait for missing packets before giving up. From the RNIC's perspective, packets always arrive in order, the entire reordering mechanism is transparent to the application. ConWeave requires programmable switches (the paper uses Intel Tofino2) and adds a small header tag per packet.
+
+### **Paper's main claims.**
+
+(1) Even minimal reordering triggers destructive behavior in RNICs
+
+(2) ConWeave's VOQ state fits within switch memory limits 
+
+(3) a Tofino2 prototype operates at line rate
+
+(4) NS-3 simulations show up to 42.3 % lower average flow completion time (FCT) and 66.8 % lower 99th-percentile FCT compared to state-of-the-art load balancers
+
+### **Scope of this report.**
+
+First, we reproduce the NS-3 FCT-slowdown results (Figures 12 and 13), which compare ECMP, CONGA, LetFlow and ConWeave under both Lossless RDMA and IRN flow control at 50 % and 80 % load, plus the uplink-imbalance CDF from Figure 14; this is covered in S4. Then, in S5, we go beyond the paper with our own experiments, testing how ConWeave behaves under conditions the paper does not explore (switch buffer size and grey failures)
 
 # 2. Selected Result
 
@@ -136,6 +123,8 @@ presented and discussed in S4.1.
    50 % load, see S4.1). The relative ordering of the schemes and all trends are
    unchanged, so this does not affect the validity of the reproduction.
 
+4. **HPC acceleration** To further accelerate the evaluation process, we offloaded a significant portion of the simulation workload to the Galileo100 supercomputer managed by CINECA. By distributing independent parameter sweeps across high-performance compute nodes, we achieved massive horizontal scaling. Because each simulation run is independent and self-contained, this large-scale parallelization reduced the overall wall-clock turnaround time from weeks to hours without introducing any statistical divergence or cross-run interference.
+
 
 # 4. Experiment Result
 
@@ -193,14 +182,14 @@ the paper's Figure 12: average and p99 FCT slowdown vs flow size, at 50 % and
   <div style="display:inline-block; width:45%;">
     <img alt="Reproduced Fig 12 average, Lossless, 50% load"
          src="figures/Full_Second_try/AVG_TOPO_leaf_spine_128_100G_OS2_LOAD_50_FC_Lossless.png"
-         style="width:100%" />
+         style="width:33.3%" />
     <p>Figure 2: Average FCT slowdown vs flow size (Lossless RDMA, 50 % load).
     Corresponds to Figure 12(a) in the paper.</p>
   </div>
   <div style="display:inline-block; width:45%; padding-left:1em">
     <img alt="Reproduced Fig 12 p99, Lossless, 50% load"
          src="figures/Full_Second_try/P99_TOPO_leaf_spine_128_100G_OS2_LOAD_50_FC_Lossless.png"
-         style="width:100%" />
+         style="width:33.3%" />
     <p>Figure 3: p99 FCT slowdown vs flow size (Lossless RDMA, 50 % load).
     Corresponds to Figure 12(b) in the paper.</p>
   </div>
@@ -210,14 +199,14 @@ the paper's Figure 12: average and p99 FCT slowdown vs flow size, at 50 % and
   <div style="display:inline-block; width:45%;">
     <img alt="Reproduced Fig 12 average, Lossless, 80% load"
          src="figures/Full_Second_try/AVG_TOPO_leaf_spine_128_100G_OS2_LOAD_80_FC_Lossless.png"
-         style="width:100%" />
+         style="width:33.3%" />
     <p>Figure 4: Average FCT slowdown vs flow size (Lossless RDMA, 80 % load).
     Corresponds to Figure 12(c) in the paper.</p>
   </div>
   <div style="display:inline-block; width:45%; padding-left:1em">
     <img alt="Reproduced Fig 12 p99, Lossless, 80% load"
          src="figures/Full_Second_try/P99_TOPO_leaf_spine_128_100G_OS2_LOAD_80_FC_Lossless.png"
-         style="width:100%" />
+         style="width:33.3%" />
     <p>Figure 5: p99 FCT slowdown vs flow size (Lossless RDMA, 80 % load).
     Corresponds to Figure 12(d) in the paper.</p>
   </div>
