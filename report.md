@@ -509,7 +509,7 @@ ConWeave masks out-of-order delivery by holding rerouted packets in a per-flow r
 
 On the reference 8×8 leaf-spine we split the spines into "near" (136–139, 1000 ns) and "far" (140–143, 4000 ns), applied uniformly to all eight ToRs, so every ToR reaches every destination through four near and four far spines. The 4000 ns leg (≈800 m fibre) makes the far-path RTT (≈16 µs) ≈3× the θ_reply = 8 µs reply cutoff. We compare against the delay-symmetric baseline reused from the reproduction runs, at 50 % and 80 % load under Lossless and IRN, with ConWeave, ECMP, Conga, and LetFlow.
 
-### **Implementation.**
+### Implementation.
 The reorder timer reads a per-destination base RTT that the released simulator computes as a hardcoded per-hop constant (one_hop_delay * hops, network-load-balance.cc), valid only under uniform delay. We replaced it with the sum of the real per-link channel delays along the constructed path, so the timer reflects the true path delay rather than a uniform estimate:
 
 ```
@@ -538,22 +538,30 @@ symmetric vs asymmetric.</p>
 </center>
 
 
-| Topology | CW avg | CW p99 | ECMP avg | ECMP p99 | CW gain (avg) | CW gain (p99) |
-|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| Symmetric | 1.47 | 5.35 | 1.94 | 10.88 | **−24 %** | **−51 %** |
-| Asymmetric | 1.48 | 5.42 | 1.98 | 11.29 | **−25 %** | **−52 %** |
+| Topology   | CW avg | CW p99 | ECMP avg | ECMP p99 | CW gain (avg) | CW gain (p99) |
+|:----------:|:------:|:------:|:--------:|:--------:|:-------------:|:-------------:|
+| Symmetric  | 3.03   | 15.34  | 7.65     | 46.29    | −60 %         | −67 %         |
+| Asymmetric | 4.49   | 20.33  | 8.26     | 44.84    | −46 %         | −55 %         |
 
-*Table 4 — FCT slowdown and reorder-queue occupancy, symmetric vs asymmetric (Lossless RDMA, 80 % load). Lower FCT is better.* 
+*Table 4 — FCT slowdown, symmetric vs asymmetric (Lossless RDMA, 80 % load). Lower is better; "CW gain" = ConWeave's FCT relative to ECMP.*
 
+| Topology   | CW VOQ p99 (pkts) | CW VOQ max (pkts) |
+|:----------:|:-----------------:|:-----------------:|
+| Symmetric  | 1055              | 3361              |
+| Asymmetric | 1095              | 2334              |
 
-### **Findings:**
+*Table 5 — ConWeave reorder-queue occupancy.*
 
+### Findings:
 
-FCT is unchanged by delay asymmetry. ConWeave's average and p99 slowdown move by at most 〈Δ〉 between the two topologies. Delay asymmetry produces reordering, not congestion, and ConWeave's reorder queue is built to absorb exactly that — so the penalty never reaches delivered latency.
-The cost surfaces as buffer, not latency. Reorder-queue occupancy rises from 〈sym max〉 to 〈asym max〉 packets (〈Δ%〉): larger inter-path delay difference means packets wait longer for the TAIL, deepening the queue. The asymmetry is paid in on-chip memory, which the metric of SX does not see.
-The mechanism still completes correctly. The tail-flush fraction stays at 〈…〉, so packets are released by the natural TAIL arrival, not by timeout — reordering succeeds, it just costs more buffer.
-Caveat. The null FCT result is partly structural: FCT slowdown is normalized by a transmission-dominated ideal, so propagation-scale effects are diluted by construction — the reorder-occupancy signal is the sensitive one. The per-destination base RTT also stores only one path's delay for a set of parallel paths of differing latency, bounding fidelity for parallel-path studies. Results are for one workload at campus-scale delay (≈800 m), characterizing ConWeave's robustness margin rather than a datacenter-representative regime.
+Asymmetry degrades ConWeave's FCT — average +48 % (3.03→4.49) and p99 +33 % (15.34→20.33). Delay heterogeneity is not free: the far-path RTT (~16 µs) exceeds ConWeave's θ_reply cutoff (8 µs), so its reply timer expires before the reply returns on slow paths and it mis-infers congestion, degrading its rerouting decisions.
+ECMP is nearly unaffected — average +8 %, p99 −3 %. It has no RTT-based control loop, so extra propagation only adds latency to ordinary flows (raising the mean) without worsening the congestion-bound tail.
+ConWeave's advantage narrows but survives — its gain over ECMP falls from −60 % to −46 % (avg) and −67 % to −55 % (p99). It still wins, by less.
+The cost is in latency, not buffer — reorder-queue occupancy barely moves (p99 1055→1095, max 3361→2334). Reordering still completes; the damage is in decision quality, not memory.
 
+### Caveat.
+
+4000 ns is campus-scale (≈800 m), beyond the intra-datacenter regime the paper targets, and it deliberately pushes the far-path RTT past θ_reply — so this characterises the boundary of ConWeave's timing assumptions, not a datacenter-representative deployment. Results are for one workload at 80 % load, Lossless. A single seed per point (no error bars). The p99 metric is congestion-normalised, so it understates propagation effects — the average is the more sensitive FCT signal here.
 
 # 6. Reproducibility Assessment of the Paper
 
