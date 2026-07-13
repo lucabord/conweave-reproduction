@@ -545,10 +545,10 @@ symmetric vs asymmetric.</p>
 
 *Table 4 — FCT slowdown, symmetric vs asymmetric (Lossless RDMA, 80 % load). Lower is better; "CW gain" = ConWeave's FCT relative to ECMP.*
 
-| Topology   | CW VOQ p99 (pkts) | CW VOQ max (pkts) |
-|:----------:|:-----------------:|:-----------------:|
-| Symmetric  | 1055              | 3361              |
-| Asymmetric | 1095              | 2334              |
+| Topology   | CW VOQ p99 (pkts) |
+|:----------:|:-----------------:|
+| Symmetric  | 1055              |
+| Asymmetric | 1095              |
 
 *Table 5 — ConWeave reorder-queue occupancy.*
 
