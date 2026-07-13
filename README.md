@@ -61,16 +61,47 @@ individual `run.py` commands in smaller batches instead.
 
 ## 4. Generate the figures
 
-The artifact's analysis scripts read the raw per-flow FCT files and produce
-the plots used in the report:
+All plotting scripts are post-processing only: they read the raw runs from
+`ns-3.19/mix/output/<run-id>/` and the `.history` file written in step 3, so
+**the corresponding simulations must have been run first**.
+
+**Reproduction figures (report S4).** The FCT-slowdown plots (paper
+Figures 12-13) come from the artifact's analysis script; the
+uplink-imbalance CDF (paper Figure 14) comes from our own script, which
+reimplements the artifact's `plot_uplink.py` algorithm and automatically
+selects the baseline runs:
 
 ```bash
 cd ns-3.19/analysis
-python3 plot_fct.py      # FCT slowdown vs flow size (paper Figures 12-13)
-python3 plot_uplink.py   # uplink throughput-imbalance CDF (paper Figure 14)
+python3 plot_fct.py                          # FCT slowdown vs flow size
+
+cd <this-repo>/scripts
+python3 reproduce_fig14.py \
+    --data_dir <ns-3.19>/mix/output \
+    --history  <ns-3.19>/mix/.history \
+    --output_dir ../figures                  # uplink-imbalance CDF
 ```
 
-The figures used by the report are stored in `figures/`.
+**Further-exploration figures (report S5).** The buffer-size and
+grey-failure sweeps are ordinary artifact runs with `BUFFER_SIZE` /
+`ERROR_RATE_PER_LINK` varied in the run configuration; once those runs
+exist, our scripts produce the S5 figures and tables:
+
+```bash
+cd <this-repo>/scripts
+python3 plot_buffer_sensitivity.py \
+    --data_dir <ns-3.19>/mix/output \
+    --history  <ns-3.19>/mix/.history_buffer_full \
+    --output_dir ../figures                  # report Figures 11-12, Table 2
+
+python3 plot_greyfailure_sensitivity.py \
+    --data_dir <ns-3.19>/mix/output \
+    --history  <ns-3.19>/mix/.history_greyfailure \
+    --output_dir ../figures                  # report Figures 13-14, Table 3
+```
+
+Each script's docstring documents the exact input format it expects. The
+figures used by the report are stored in `figures/`.
 
 ## 5. Build the report PDF
 

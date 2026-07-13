@@ -2,7 +2,7 @@
 
 **Team Members:**
 
-Luca Bordin (luca.bordin@mail.polimi.it)
+Luca Bordin (luca1.bordin@mail.polimi.it)
 
 Mattia Menegale (mattia.menegale@mail.polimi.it)
 
@@ -21,7 +21,7 @@ report and figures for our reproduction of the
 ConWeave NS-3 artifact (https://github.com/conweave-project/conweave-ns3).
 
 ---
-# Introduction
+# 1. Introduction
 
 Datacenter networks rely on load balancing to keep traffic moving fast and prevent delays: traffic must be spread across many equal-cost paths that connect any two servers.
 
@@ -29,27 +29,27 @@ For RDMA traffic, hitting that goal is unusually hard, because RDMA cannot toler
 
 RDMA (Remote Direct Memory Access) lets one server's NIC (RNIC) write directly into another server's memory, with the OS kernel and CPU on both ends left out of the data path entirely. That's what makes RDMA fast enough to be the default transport for storage traffic (e.g., NVMe over Fabrics) and distributed ML training (e.g., gradient exchange between GPUs) in modern datacenters. The same design is also what makes RDMA fragile. On Ethernet fabrics, RDMA is carried by RoCEv2 (RDMA over Converged Ethernet v2), which reuses the InfiniBand transport's loss-recovery scheme: Go-Back-N (GBN) ARQ. Under GBN, the receiver expects every packet in exact sequence; the moment one packet is missing or out of order, everything that arrived after it is discarded, and the sender must retransmit the entire window from that point, not just the packet that actually went astray. A single misordered packet can therefore stall a flow for a full round trip and inflate its completion time, even when nothing was actually lost.
 
-### **Why existing load balancers fail?**
+### **Why do existing load balancers fail?**
 
-The simplest approach, ECMP (Equal-Cost Multi-Path), assigns each flow to one fixed path, safe for RDMA (no reordering) but creates hot-spots when multiple large flows share a link. Smarter schemes like CONGA or LetFlow reroute traffic mid-flow to avoid congestion, but doing so inevitably delivers some packets out of order, exactly what RDMA cannot handle. Network operators must choose between good load balance and RDMA safety, not both.
+The simplest approach, ECMP (Equal-Cost Multi-Path), assigns each flow to one fixed path — safe for RDMA (no reordering), but it creates hot-spots when multiple large flows share a link. Smarter schemes like CONGA or LetFlow reroute traffic mid-flow to avoid congestion, but doing so inevitably delivers some packets out of order, exactly what RDMA cannot handle. Network operators must therefore choose between good load balance and RDMA safety: they cannot have both.
 
 ### **ConWeave's solution.** 
 
-ConWeave eliminates this trade-off by handling reordering inside the network. It reroutes traffic for optimal load balance (like CONGA), but the destination Top-of-Rack (ToR) switch reorders packets before delivering them to the RNIC. Out-of-order packets are held in per-flow Virtual Output Queues (VOQs) and released in the correct sequence. The source ToR tags each packet with timing metadata and probes path round-trip times so the destination knows how long to wait for missing packets before giving up. From the RNIC's perspective, packets always arrive in order, the entire reordering mechanism is transparent to the application. ConWeave requires programmable switches (the paper uses Intel Tofino2) and adds a small header tag per packet.
+ConWeave eliminates this trade-off by handling reordering inside the network. It reroutes traffic for optimal load balance (like CONGA), but the destination Top-of-Rack (ToR) switch reorders packets before delivering them to the RNIC. Out-of-order packets are held in per-flow Virtual Output Queues (VOQs) and released in the correct sequence. The source ToR tags each packet with timing metadata and probes path round-trip times so the destination knows how long to wait for missing packets before giving up. From the RNIC's perspective, packets always arrive in order: the entire reordering mechanism is transparent to the application. ConWeave requires programmable switches (the paper uses Intel Tofino2) and adds a small header tag per packet.
 
 ### **Paper's main claims.**
 
-(1) Even minimal reordering triggers destructive behavior in RNICs
+(1) Even minimal reordering triggers destructive behavior in RNICs.
 
-(2) ConWeave's VOQ state fits within switch memory limits 
+(2) ConWeave's VOQ state fits within switch memory limits.
 
-(3) a Tofino2 prototype operates at line rate
+(3) A Tofino2 prototype operates at line rate.
 
-(4) NS-3 simulations show up to 42.3 % lower average flow completion time (FCT) and 66.8 % lower 99th-percentile FCT compared to state-of-the-art load balancers
+(4) NS-3 simulations show up to 42.3 % lower average flow completion time (FCT) and 66.8 % lower 99th-percentile FCT compared to state-of-the-art load balancers.
 
 ### **Scope of this report.**
 
-First, we reproduce the NS-3 FCT-slowdown results (Figures 12 and 13), which compare ECMP, CONGA, LetFlow and ConWeave under both Lossless RDMA and IRN flow control at 50 % and 80 % load, plus the uplink-imbalance CDF from Figure 14; this is covered in S4. Then, in S5, we go beyond the paper with our own experiments, testing how ConWeave behaves under conditions the paper does not explore (switch buffer size and grey failures)
+First, we reproduce the NS-3 FCT-slowdown results (Figures 12 and 13), which compare ECMP, CONGA, LetFlow and ConWeave under both Lossless RDMA and IRN flow control at 50 % and 80 % load, plus the uplink-imbalance CDF from Figure 14; this is covered in S4. Then, in S5, we go beyond the paper with our own experiments, testing how ConWeave behaves under conditions the paper does not explore (switch buffer size, grey failures and path-delay heterogeneity).
 
 # 2. Selected Result
 
@@ -75,9 +75,12 @@ presented and discussed in S4.1.
 
 # 3. Environment Setup
 
-<!-- TODO: siamo in 3, tutti con Mac ma di anni/modelli diversi — da
-     sistemare descrivendo le macchine di tutti o quella di riferimento -->
-**Hardware.*** TODO.
+**Hardware.**
+Development and local simulation runs were carried out on the team's three
+Apple Silicon (M-series) MacBooks. The large multi-configuration sweeps were
+offloaded to compute nodes of the Galileo100 supercomputer (CINECA). Since
+NS-3 is fully deterministic for a given seed, the choice of machine affects
+only wall-clock time, never the results.
 
 **Software.**
 - macOS 26.5.1 (Darwin 25.5.0).
@@ -123,10 +126,10 @@ presented and discussed in S4.1.
    50 % load, see S4.1). The relative ordering of the schemes and all trends are
    unchanged, so this does not affect the validity of the reproduction.
 
-4. **HPC acceleration** To further accelerate the evaluation process, we offloaded a significant portion of the simulation workload to the Galileo100 supercomputer managed by CINECA. By distributing independent parameter sweeps across high-performance compute nodes, we achieved massive horizontal scaling. Because each simulation run is independent and self-contained, this large-scale parallelization reduced the overall wall-clock turnaround time from weeks to hours without introducing any statistical divergence or cross-run interference.
+4. **HPC acceleration.** To further accelerate the evaluation process, we offloaded a significant portion of the simulation workload to the Galileo100 supercomputer managed by CINECA. By distributing independent parameter sweeps across high-performance compute nodes, we achieved massive horizontal scaling. Because each simulation run is independent and self-contained, this large-scale parallelization reduced the overall wall-clock turnaround time from weeks to hours without introducing any statistical divergence or cross-run interference.
 
 
-# 4. Experiment Result
+# 4. Experiment Results
 
 ### **How a simulation run works.** 
 
@@ -139,8 +142,18 @@ analysis scripts (`analysis/plot_fct.py`), which read the raw per-flow FCT
 files and generate the FCT-slowdown figures; `fctAnalysis.py` computes the
 aggregate summary statistics (Table 1).
 
-### **Statistics.** 
-TODO.
+### **Statistics.**
+
+Each (scheme, flow-control, load) configuration is a single deterministic
+NS-3 run; a complete baseline run yields roughly 900k+ completed flows, so
+every reported point aggregates a large sample even without repetition (and
+with a fixed seed there is no run-to-run variance, hence no error bars). The
+reported metrics are the **average** and the **99th percentile (p99)** of the
+per-flow FCT slowdown, computed by the artifact's `fctAnalysis.py` both over
+all completed flows (Tables 1-4) and per flow-size bucket (the x-axis of
+Figures 2-9). The p99 is reported alongside the mean because tail latency is
+the metric RDMA workloads are most sensitive to, and it is where the schemes
+differ the most.
 
 ### **How FCT slowdown is computed.**
 
@@ -153,7 +166,7 @@ starting after warm-up and finishing before cool-down are counted.
 
 ## 4.1 Reproduced Figures and Comparison
 
-In this section, we evaluate the reproduction of the core protocol behavior by comparing our simulated results against the original baselines established in the paper. The benchmark focuses on Flow Completion Time (FCT) slowdown across varied traffic loads ($50\%$ and $80\%$) under both Lossless and Lossy network fabrics.To validate the consistency of the reproduction, the original figures from the paper are presented first, serving as the benchmark for the subsequent evaluation of our generated results.
+In this section, we evaluate the reproduction of the core protocol behavior by comparing our simulated results against the original baselines established in the paper. The benchmark focuses on Flow Completion Time (FCT) slowdown across varied traffic loads (50 % and 80 %) under both Lossless and Lossy network fabrics. To validate the consistency of the reproduction, the original figures from the paper are presented first, serving as the benchmark for the subsequent evaluation of our generated results.
 
 ### Original Baseline Results
 
@@ -180,23 +193,43 @@ In this section, we evaluate the reproduction of the core protocol behavior by c
 
 ### Reproduced Performance Metrics.
 
-<p>From left to right: (a) Average FCT slowdown at $50\%$ load (corresponds to Fig. 12(a) in the paper); (b) $99^{\text{th}}$ percentile (p99) FCT slowdown at $50\%$ load (corresponds to Fig. 12(b)); (c) Average FCT slowdown at $80\%$ load (corresponds to Fig. 12(c))</p>
+<center>
+  <div style="display:inline-block; width:45%;">
+    <img alt="Reproduced Fig 12 average, Lossless, 50% load"
+         src="figures/Full_Second_try/AVG_TOPO_leaf_spine_128_100G_OS2_LOAD_50_FC_Lossless.png"
+         style="width:100%" />
+    <p>Figure 2: Average FCT slowdown vs flow size (Lossless RDMA, 50 % load).
+    Corresponds to Figure 12(a) in the paper.</p>
+  </div>
+  <div style="display:inline-block; width:45%; padding-left:1em">
+    <img alt="Reproduced Fig 12 p99, Lossless, 50% load"
+         src="figures/Full_Second_try/P99_TOPO_leaf_spine_128_100G_OS2_LOAD_50_FC_Lossless.png"
+         style="width:100%" />
+    <p>Figure 3: p99 FCT slowdown vs flow size (Lossless RDMA, 50 % load).
+    Corresponds to Figure 12(b) in the paper.</p>
+  </div>
+</center>
 
-<p align="center" width="100%">
-    <img width="33%" alt="Reproduced Fig 12 average, Lossless, 50% load"
-         src="figures/Full_Second_try/AVG_TOPO_leaf_spine_128_100G_OS2_LOAD_50_FC_Lossless.png">
-    <img width="33%" alt="Reproduced Fig 12 p99, Lossless, 50% load"
-         src="figures/Full_Second_try/P99_TOPO_leaf_spine_128_100G_OS2_LOAD_50_FC_Lossless.png">
-    <img width="33%" alt="Reproduced Fig 12 average, Lossless, 80% load"
-         src="figures/Full_Second_try/AVG_TOPO_leaf_spine_128_100G_OS2_LOAD_80_FC_Lossless.png">
-   <img width="33%" alt="Reproduced Fig 12 p99, Lossless, 80% load"
-         src="figures/Full_Second_try/P99_TOPO_leaf_spine_128_100G_OS2_LOAD_80_FC_Lossless.png">     
-  
-</p>
+<center>
+  <div style="display:inline-block; width:45%;">
+    <img alt="Reproduced Fig 12 average, Lossless, 80% load"
+         src="figures/Full_Second_try/AVG_TOPO_leaf_spine_128_100G_OS2_LOAD_80_FC_Lossless.png"
+         style="width:100%" />
+    <p>Figure 4: Average FCT slowdown vs flow size (Lossless RDMA, 80 % load).
+    Corresponds to Figure 12(c) in the paper.</p>
+  </div>
+  <div style="display:inline-block; width:45%; padding-left:1em">
+    <img alt="Reproduced Fig 12 p99, Lossless, 80% load"
+         src="figures/Full_Second_try/P99_TOPO_leaf_spine_128_100G_OS2_LOAD_80_FC_Lossless.png"
+         style="width:100%" />
+    <p>Figure 5: p99 FCT slowdown vs flow size (Lossless RDMA, 80 % load).
+    Corresponds to Figure 12(d) in the paper.</p>
+  </div>
+</center>
 
 
 
-### 4.2 Quantitative Deviations and Qualitative Alignment
+## 4.2 Quantitative Deviations and Qualitative Alignment
 
 ConWeave outperforms every other scheme on all metrics. The gains are largest
 at the **99th percentile** (-51 %), which is the metric most relevant to
@@ -228,9 +261,7 @@ expected: we simulate 0.1 s of traffic (the artifact default), which likely
 corresponds to a shorter effective horizon than the paper used. Trends and
 relative ordering are identical - the reproduction is valid.
 
-**At 80 % load** 
-
-(Figures 4-5) the picture sharpens dramatically, exactly as
+**At 80 % load** (Figures 4-5) the picture sharpens dramatically, exactly as
 in the paper's Figure 12(c)-(d): absolute slowdowns grow for every scheme
 (the network is much more congested), but the separation between schemes
 grows. ECMP and LetFlow sit at an average slowdown of roughly 7 with a p99
@@ -248,26 +279,42 @@ The performance gaps between schemes narrow, but **ConWeave still leads on
 every metric**. Figures 6-9 reproduce the four panels of the paper's
 Figure 13.
 
-<p align="center" width="100%">
-    <img width="33%" alt="Reproduced Fig 13 average, IRN, 50% load"
-         src="figures/Full_Second_try/AVG_TOPO_leaf_spine_128_100G_OS2_LOAD_50_FC_IRN.png">
-    <img width="33%" alt="Reproduced Fig 13 p99, IRN, 50% load"
-         src="figures/Full_Second_try/P99_TOPO_leaf_spine_128_100G_OS2_LOAD_50_FC_IRN.png">
-    <img width="33%" alt="Reproduced Fig 13 average, IRN, 80% load"
-         src="figures/Full_Second_try/AVG_TOPO_leaf_spine_128_100G_OS2_LOAD_80_FC_IRN.png">
-   <img width="33%" alt="Reproduced Fig 13 p99, IRN, 80% load"
-         src="figures/Full_Second_try/P99_TOPO_leaf_spine_128_100G_OS2_LOAD_80_FC_IRN.png">     
-  
-</p>
+<center>
+  <div style="display:inline-block; width:45%;">
+    <img alt="Reproduced Fig 13 average, IRN, 50% load"
+         src="figures/Full_Second_try/AVG_TOPO_leaf_spine_128_100G_OS2_LOAD_50_FC_IRN.png"
+         style="width:100%" />
+    <p>Figure 6: Average FCT slowdown vs flow size (IRN, 50 % load).
+    Corresponds to Figure 13(a) in the paper.</p>
+  </div>
+  <div style="display:inline-block; width:45%; padding-left:1em">
+    <img alt="Reproduced Fig 13 p99, IRN, 50% load"
+         src="figures/Full_Second_try/P99_TOPO_leaf_spine_128_100G_OS2_LOAD_50_FC_IRN.png"
+         style="width:100%" />
+    <p>Figure 7: p99 FCT slowdown vs flow size (IRN, 50 % load).
+    Corresponds to Figure 13(b) in the paper.</p>
+  </div>
+</center>
 
-<p>Figure 6: Average FCT slowdown vs flow size (IRN, 50 % load).
-    Corresponds to Figure 13(a) in the paper.Figure 7: p99 FCT slowdown vs flow size (IRN, 50 % load).
-    Corresponds to Figure 13(b) in the paper.Figure 8: Average FCT slowdown vs flow size (IRN, 80 % load).
-    Corresponds to Figure 13(c) in the paper.Figure 9: p99 FCT slowdown vs flow size (IRN, 80 % load).
+<center>
+  <div style="display:inline-block; width:45%;">
+    <img alt="Reproduced Fig 13 average, IRN, 80% load"
+         src="figures/Full_Second_try/AVG_TOPO_leaf_spine_128_100G_OS2_LOAD_80_FC_IRN.png"
+         style="width:100%" />
+    <p>Figure 8: Average FCT slowdown vs flow size (IRN, 80 % load).
+    Corresponds to Figure 13(c) in the paper.</p>
+  </div>
+  <div style="display:inline-block; width:45%; padding-left:1em">
+    <img alt="Reproduced Fig 13 p99, IRN, 80% load"
+         src="figures/Full_Second_try/P99_TOPO_leaf_spine_128_100G_OS2_LOAD_80_FC_IRN.png"
+         style="width:100%" />
+    <p>Figure 9: p99 FCT slowdown vs flow size (IRN, 80 % load).
     Corresponds to Figure 13(d) in the paper.</p>
+  </div>
+</center>
 
-At 50 % load the scheme ordering is unchanged from the Lossless case, ECMP
-and LetFlow worst, CONGA intermediate, ConWeave best - with ConWeave's
+At 50 % load the scheme ordering is unchanged from the Lossless case — ECMP
+and LetFlow worst, CONGA intermediate, ConWeave best — with ConWeave's
 advantage again largest at the tail and for the larger flow sizes.
 At 80 % load the same amplification seen under Lossless appears here too:
 average slowdowns roughly double for every scheme, and ConWeave's tail
@@ -278,8 +325,11 @@ medium flows). Both match the paper's Figure 13.
 
 The FCT gains come from better traffic spreading, which we can verify directly: for every ToR switch and
 every 100 µs window we compute the throughput imbalance across its uplinks,
-(MAX-MIN)/AVG, and plot the CDF over all switches and windows using the
-artifact's `analysis/plot_uplink.py`. This reproduces the paper's Figure 14, which reports the
+(MAX-MIN)/AVG, and plot the CDF over all switches and windows using our own
+script `scripts/reproduce_fig14.py`, which reimplements the imbalance
+algorithm of the artifact's `analysis/plot_uplink.py` and automatically
+selects the baseline runs (9 MB buffer, default 200 µs VOQ waiting time,
+complete runs only). This reproduces the paper's Figure 14, which reports the
 metric under IRN at 50 % and 80 % load; the 80 % panel will be added once
 the corresponding simulation campaign completes.
 
@@ -311,11 +361,14 @@ Beyond reproducing the paper's results, we ran:
 - **a switch-buffer-size sensitivity sweep**: how much on-chip buffer ConWeave
   actually needs (S5.1);
 - **a grey-failure sensitivity sweep**: how ConWeave behaves when links
-  silently drop packets (S5.2).
-- **a etherogenous topology**: how ConWeave behaves when the topology is not homogenous
+  silently drop packets (S5.2);
+- **a heterogeneous topology**: how ConWeave behaves when the topology is not
+  homogeneous in path delay (S5.3).
 
-All the experiments use the same 128-server leaf-spine topology, AliStorage workload and 50 % load as S4, under Lossless
-RDMA. Each data point is a single deterministic NS-3 run.
+All the experiments use the same 128-server leaf-spine topology and
+AliStorage workload as S4; S5.1 and S5.2 run at 50 % load under Lossless
+RDMA, while S5.3 also covers 80 % load and IRN. Each data point is a single
+deterministic NS-3 run.
 
 ## 5.1 Switch-Buffer-Size Sensitivity
 
@@ -331,7 +384,8 @@ performance degrades?**
 
 We sweep the per-switch buffer size over {2, 4, 6, 9, 12, 24} MB,
 running ConWeave and ECMP at each point. The 9 MB point is the one reused from
-the S4 reproduction runs.
+the S4 reproduction runs. Figures 11-12 are generated from the raw run data
+by our script `scripts/plot_buffer_sensitivity.py`.
 
 <center>
   <div style="display:inline-block; width:45%;">
@@ -401,6 +455,8 @@ such packets end-to-end. At the higher rates the failure runs finish fewer
 flows within the measurement window than the baseline (≈355-440 k vs 930 k),
 because retransmissions slow the whole fabric down; each row compares the two
 schemes at the same error rate, so this does not bias the comparison.
+Figures 13-14 and Table 3 are generated from the raw run data by our script
+`scripts/plot_greyfailure_sensitivity.py`.
 
 <center>
   <div style="display:inline-block; width:45%;">
@@ -446,7 +502,7 @@ CW = ConWeave; gain is ConWeave's average improvement over ECMP.*
 
 ### **Question.** 
 
-ConWeave masks out-of-order delivery by holding rerouted packets in a per-flow reorder queue until the TAIL arrives (§3.3). The cost of that hold scales with the delay difference between the fast and slow paths a flow uses — yet the paper evaluates only a delay-symmetric fabric (all links 1 µs, §4.1). Real fabrics span rows and buildings. 
+ConWeave masks out-of-order delivery by holding rerouted packets in a per-flow reorder queue until the TAIL arrives (S3.3). The cost of that hold scales with the delay difference between the fast and slow paths a flow uses — yet the paper evaluates only a delay-symmetric fabric (all links 1 µs, S4.1). Real fabrics span rows and buildings. 
 **Does inter-path delay asymmetry hurt ConWeave, and through which metric — latency or buffer?**
 
 ### **Method.**
@@ -469,23 +525,23 @@ The expression reduces to the original when all links are equal, so the homogene
 <img alt="FCT slowdown, symmetric vs asymmetric"
 src="figures/delay_heterogeneity_fct.png"
 style="width:100%" />
-<p>Figure 1: Average and p99 FCT slowdown vs flow size, delay-symmetric
+<p>Figure 15: Average and p99 FCT slowdown vs flow size, delay-symmetric
 vs asymmetric topology.</p>
 </div>
 <div style="display:inline-block; width:45%; padding-left:1em">
 <img alt="Reorder-queue occupancy CDF"
 src="figures/delay_heterogeneity_voq.png"
 style="width:100%" />
-<p>Figure 2: ConWeave per-switch reorder-queue occupancy (CDF),
+<p>Figure 16: ConWeave per-switch reorder-queue occupancy (CDF),
 symmetric vs asymmetric.</p>
 </div>
 </center>
 
 
-| Topology| CW avg | CW p99 | ECMP avg | ECMP p99 | CW gain (avg) | CW gain (avg) |
+| Topology | CW avg | CW p99 | ECMP avg | ECMP p99 | CW gain (avg) | CW gain (p99) |
 |:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| Symmetric | 1.47 | 5.35 | 1.94 | 10.88 | **−24 %** | **−24 %** |
-| ASymmetric | 1.48 | 5.42 | 1.98 | 11.29 | **−25 %** | **−24 %** |
+| Symmetric | 1.47 | 5.35 | 1.94 | 10.88 | **−24 %** | **−51 %** |
+| Asymmetric | 1.48 | 5.42 | 1.98 | 11.29 | **−25 %** | **−52 %** |
 
 *Table 4 — FCT slowdown and reorder-queue occupancy, symmetric vs asymmetric (Lossless RDMA, 80 % load). Lower FCT is better.* 
 
@@ -494,7 +550,7 @@ symmetric vs asymmetric.</p>
 
 
 FCT is unchanged by delay asymmetry. ConWeave's average and p99 slowdown move by at most 〈Δ〉 between the two topologies. Delay asymmetry produces reordering, not congestion, and ConWeave's reorder queue is built to absorb exactly that — so the penalty never reaches delivered latency.
-The cost surfaces as buffer, not latency. Reorder-queue occupancy rises from 〈sym max〉 to 〈asym max〉 packets (〈Δ%〉): larger inter-path delay difference means packets wait longer for the TAIL, deepening the queue. The asymmetry is paid in on-chip memory, which the metric of §X does not see.
+The cost surfaces as buffer, not latency. Reorder-queue occupancy rises from 〈sym max〉 to 〈asym max〉 packets (〈Δ%〉): larger inter-path delay difference means packets wait longer for the TAIL, deepening the queue. The asymmetry is paid in on-chip memory, which the metric of SX does not see.
 The mechanism still completes correctly. The tail-flush fraction stays at 〈…〉, so packets are released by the natural TAIL arrival, not by timeout — reordering succeeds, it just costs more buffer.
 Caveat. The null FCT result is partly structural: FCT slowdown is normalized by a transmission-dominated ideal, so propagation-scale effects are diluted by construction — the reorder-occupancy signal is the sensitive one. The per-destination base RTT also stores only one path's delay for a set of parallel paths of differing latency, bounding fidelity for parallel-path studies. Results are for one workload at campus-scale delay (≈800 m), characterizing ConWeave's robustness margin rather than a datacenter-representative regime.
 
@@ -512,6 +568,6 @@ Setting up each experiment was straightforward for configuration-only changes (b
 
 Through this project we confirmed that ConWeave is a credible answer to the RDMA load-balancing problem, and we found the paper both insightful and unusually precise: the parameters, mechanisms, and figures described in the text map directly onto the released implementation, which made verification straightforward. The code is well-structured and easy to navigate despite having few comments — a gap that modern LLM-assisted reading made non-blocking. Within the regime it was designed and evaluated for (a homogeneous datacenter fabric), we found no functional errors; what we did find were guardrails — assertions and a few hardcoded simplifications (a constant per-hop base-RTT, buffer-threshold arithmetic) that are correct for that regime but must be relaxed or corrected to explore outside it.
 
-This is the project's main methodological finding: ConWeave is easy to reproduce but comparatively hard to extend. Probing behavior beyond the paper's assumptions required modifying the simulator (relaxing the uniform-delay assertions, rewriting the base-RTT computation), which raises the effort of any novel experiment. Our original ambition was to surface a surprising result. We did not find a counter-intuitive failure of ConWeave — our experiments instead characterized its robustness margins (it absorbs delay heterogeneity as buffer rather than latency; it tolerates link loss better than ECMP). But the deeper value came from the analysis itself: it led us to the paper's own acknowledged open problem — that ConWeave's benefit is bounded by finite reorder-queue resources, and that admission control / fallback under resource exhaustion is left as future work (§7). Identifying precisely where a real contribution lies, even without implementing it under our time constraints, was the more meaningful outcome.
+This is the project's main methodological finding: ConWeave is easy to reproduce but comparatively hard to extend. Probing behavior beyond the paper's assumptions required modifying the simulator (relaxing the uniform-delay assertions, rewriting the base-RTT computation), which raises the effort of any novel experiment. Our original ambition was to surface a surprising result. We did not find a counter-intuitive failure of ConWeave — our experiments instead characterized its robustness margins (it absorbs delay heterogeneity as buffer rather than latency; it tolerates link loss better than ECMP). But the deeper value came from the analysis itself: it led us to the paper's own acknowledged open problem — that ConWeave's benefit is bounded by finite reorder-queue resources, and that admission control / fallback under resource exhaustion is left as future work (S7). Identifying precisely where a real contribution lies, even without implementing it under our time constraints, was the more meaningful outcome.
 
-Finally, our early experiments aimed at ConWeave's deployability — asking whether it retains an advantage on cheaper, shallower-buffer switches. This exposed a broader real-world tension. ConWeave requires a programmable-switch data plane (the paper targets the Intel Tofino2); such hardware is specialized and costly, and the programmable-switch ecosystem is itself uncertain (Intel wound down the Tofino line in 2023), while the RDMA-NIC side is dominated by a single vendor (Nvidia, post-Mellanox). The paper anticipates part of this concern by arguing ConWeave's logic can migrate to SmartNICs/DPUs (§5), but that portability is not demonstrated. These constraints, more than any algorithmic weakness, are what most limit ConWeave as a near-term production solution — and pursuing them is what made the project scientifically richer than a pure reproduction would have been.
+Finally, our early experiments aimed at ConWeave's deployability — asking whether it retains an advantage on cheaper, shallower-buffer switches. This exposed a broader real-world tension. ConWeave requires a programmable-switch data plane (the paper targets the Intel Tofino2); such hardware is specialized and costly, and the programmable-switch ecosystem is itself uncertain (Intel wound down the Tofino line in 2023), while the RDMA-NIC side is dominated by a single vendor (Nvidia, post-Mellanox). The paper anticipates part of this concern by arguing ConWeave's logic can migrate to SmartNICs/DPUs (S5), but that portability is not demonstrated. These constraints, more than any algorithmic weakness, are what most limit ConWeave as a near-term production solution — and pursuing them is what made the project scientifically richer than a pure reproduction would have been.
