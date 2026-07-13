@@ -44,10 +44,13 @@ FC_COLORS = {"Lossless": "tab:blue", "IRN": "tab:orange"}
 FC_STYLES = {"Lossless": "solid", "IRN": "dashed"}
 LB_MODES = {0: "ECMP", 3: "CONGA", 6: "LetFlow", 9: "ConWeave"}
 LB_ORDER = ["ECMP", "CONGA", "LetFlow", "ConWeave"]
+# colors/styles/labels match the artifact's own plots (analysis/plot_uplink.py)
 LB_COLORS = {"ECMP": "tab:green", "CONGA": "tab:blue",
              "LetFlow": "tab:purple", "ConWeave": "tab:orange"}
-LB_STYLES = {"ECMP": "dashed", "CONGA": "dashdot",
-             "LetFlow": "dotted", "ConWeave": "solid"}
+LB_STYLES = {"ECMP": "solid", "CONGA": "dashed",
+             "LetFlow": "dotted", "ConWeave": (0, (3, 1, 1, 1, 1, 1))}
+LB_LABELS = {"ECMP": "fecmp", "CONGA": "conga",
+             "LetFlow": "letflow", "ConWeave": "conweave"}
 TOPO = "leaf_spine_128_100G_OS2"
 COMPLETE_FCT_LINES = 900000
 
@@ -214,7 +217,7 @@ def main():
             v, p = uplink_imbalance_cdf(
                 os.path.join(data_dir, cid, f"{cid}_out_uplink.txt"), args.sT, args.fT)
             ax.plot(v, p, color=LB_COLORS[lb], linestyle=LB_STYLES[lb],
-                    linewidth=2.5, label=lb)
+                    linewidth=2.5, label=LB_LABELS[lb])
             print(f"  {fc}/{lb}: uplink imbalance median {np.median(v):.0f}%, "
                   f"p99 {np.percentile(v, 99):.0f}%")
         ax.set_xlabel("Throughput imbalance (MAX−MIN)/AVG (%)", fontsize=12)

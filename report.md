@@ -66,7 +66,7 @@ We reproduce **Figure 12**, **Figure 13** and **Figure 14** of the paper.
 * **Figure 14** shows the **CDF of uplink throughput imbalance** across each
   ToR switch's uplinks — a direct measurement of how evenly each scheme
   spreads traffic. The paper reports it under IRN at 50 % and 80 % load; we
-  reproduce the 50 % panel (the 80 % panel is in progress).
+  reproduce both panels.
 
 These figures contain the paper's main performance claim: ConWeave delivers
 near-ideal FCT even under heavy load, while staying RDMA-safe. Reproducing
@@ -163,6 +163,18 @@ the time the same flow would take on an otherwise empty network. FCT slowdown
 = actual FCT / standalone FCT, clamped to a minimum of 1.0. Only flows
 starting after warm-up and finishing before cool-down are counted.
 
+### **Correctness checks and debugging.**
+
+Beyond the headline metric we sanity-checked each run: completed-flow counts
+were compared across schemes and against the expected ≈930 k baseline to catch
+truncated or diverging runs, and the uplink-imbalance CDF (Figure 10)
+independently confirms that the FCT gains come from the claimed mechanism
+(better traffic spreading) rather than an artifact of the metric. The issues
+we had to debug were environmental rather than scientific — the artifact
+targets x86 Linux and some long sweeps exhausted the default container
+memory — and were solved by the containerized setup described in S3 and by
+moving the sweeps to the HPC cluster (S6 discusses this in more detail).
+
 
 ## 4.1 Reproduced Figures and Comparison
 
@@ -189,6 +201,8 @@ In this section, we evaluate the reproduction of the core protocol behavior by c
          src="figures/paper_fig14_original.jpeg"
          style="width:100%" />
   </div>
+  <p>Figure 1: The original Figures 12, 13 and 14 from the paper, which are
+  the targets of this reproduction.</p>
 </center>
 
 ### Reproduced Performance Metrics.
@@ -330,19 +344,22 @@ script `scripts/reproduce_fig14.py`, which reimplements the imbalance
 algorithm of the artifact's `analysis/plot_uplink.py` and automatically
 selects the baseline runs (9 MB buffer, default 200 µs VOQ waiting time,
 complete runs only). This reproduces the paper's Figure 14, which reports the
-metric under IRN at 50 % and 80 % load; the 80 % panel will be added once
-the corresponding simulation campaign completes.
+metric under IRN at 50 % and 80 % load; we reproduce both panels.
 
-<!-- TODO: manca ancora il pannello 80% load (Figure 14(b) del paper) —
-     aggiungere qui la CDF IRN a 80% quando la run sarà completata -->
 <center>
-  <div style="display:inline-block; width:48%;">
-    <img alt="Uplink imbalance CDF, IRN"
-         src="figures/Full_Second_try/fig14_uplink_cdf_IRN_leaf_spine_128_100G_OS2_load50.png"
+  <div style="display:inline-block; width:45%;">
+    <img alt="Uplink imbalance CDF, IRN, 50% load"
+         src="figures/fig14_uplink_cdf_IRN_leaf_spine_128_100G_OS2_load50.png"
          style="width:100%" />
-    <p>Figure 10: CDF of per-ToR uplink throughput imbalance, IRN RDMA,
-    50 % load. Corresponds to Figure 14(a) in the paper.</p>
   </div>
+  <div style="display:inline-block; width:45%; padding-left:1em">
+    <img alt="Uplink imbalance CDF, IRN, 80% load"
+         src="figures/CDF_UPLINK_TOPO_leaf_spine_128_100G_OS2_LOAD_80_FC_IRN_titled.png"
+         style="width:100%" />
+  </div>
+  <p>Figure 10: CDF of per-ToR uplink throughput imbalance, IRN RDMA, at
+  50 % load (left) and 80 % load (right). Corresponds to Figure 14(a)-(b)
+  in the paper.</p>
 </center>
 
 ConWeave spreads traffic markedly better than every alternative: its median
@@ -350,9 +367,12 @@ imbalance is 110 % versus 148-156 % for ECMP, CONGA
 and LetFlow, and the gap persists at the tail (p99 ~200 % vs ~250 %).
 ECMP and LetFlow overlap almost exactly, with CONGA only slightly better,
 the same qualitative picture as the paper's Figure 14, where ConWeave's curve
-sits clearly left of the ECMP/CONGA/LetFlow cluster. This confirms that the
-FCT improvements in Figures 2-9 are indeed produced by more even uplink
-utilisation rather than by some artifact of the metric.
+sits clearly left of the ECMP/CONGA/LetFlow cluster. The 80 % panel shows the
+same picture: ConWeave's curve stays well left of the others (median imbalance
+roughly 45 % versus 80 % for the ECMP/LetFlow pair, with CONGA in between),
+matching the paper's Figure 14(b). This confirms that the FCT improvements in
+Figures 2-9 are indeed produced by more even uplink utilisation rather than by
+some artifact of the metric.
 
 # 5. Further Exploration
 
@@ -367,8 +387,8 @@ Beyond reproducing the paper's results, we ran:
 
 All the experiments use the same 128-server leaf-spine topology and
 AliStorage workload as S4; S5.1 and S5.2 run at 50 % load under Lossless
-RDMA, while S5.3 also covers 80 % load and IRN. Each data point is a single
-deterministic NS-3 run.
+RDMA, while S5.3 runs at 80 % load under Lossless RDMA. Each data point is a
+single deterministic NS-3 run.
 
 ## 5.1 Switch-Buffer-Size Sensitivity
 
@@ -522,18 +542,27 @@ The expression reduces to the original when all links are equal, so the homogene
 
 <center>
 <div style="display:inline-block; width:45%;">
-<img alt="FCT slowdown, symmetric vs asymmetric"
-src="figures/delay_heterogeneity_fct.png"
+<img alt="Average FCT slowdown, symmetric vs asymmetric"
+src="figures/asym_AVG_TOPO_leaf_spine_128_100G_OS2_LOAD_80_FC_Lossless.png"
 style="width:100%" />
-<p>Figure 15: Average and p99 FCT slowdown vs flow size, delay-symmetric
-vs asymmetric topology.</p>
 </div>
 <div style="display:inline-block; width:45%; padding-left:1em">
+<img alt="p99 FCT slowdown, symmetric vs asymmetric"
+src="figures/asym_P99_TOPO_leaf_spine_128_100G_OS2_LOAD_80_FC_Lossless.png"
+style="width:100%" />
+</div>
+<p>Figure 15: Average (left) and p99 (right) FCT slowdown vs flow size,
+delay-symmetric (solid) vs asymmetric (dashed) topology
+(Lossless RDMA, 80 % load).</p>
+</center>
+
+<center>
+<div style="display:inline-block; width:45%;">
 <img alt="Reorder-queue occupancy CDF"
-src="figures/delay_heterogeneity_voq.png"
+src="figures/asym_CDF_QUEUE_TOPO_leaf_spine_128_100G_OS2_LOAD_80_FC_Lossless.png"
 style="width:100%" />
 <p>Figure 16: ConWeave per-switch reorder-queue occupancy (CDF),
-symmetric vs asymmetric.</p>
+symmetric (solid) vs asymmetric (dashed).</p>
 </div>
 </center>
 
@@ -550,7 +579,7 @@ symmetric vs asymmetric.</p>
 | Symmetric  | 1055              |
 | Asymmetric | 1095              |
 
-*Table 5 — ConWeave reorder-queue occupancy. The CW VOQ p99 is the x-value where the CDF reaches 0.99 - Image CDF symmetric vs asymmetric*
+*Table 5 — ConWeave reorder-queue occupancy. The CW VOQ p99 is the x-value where the CDF in Figure 16 reaches 0.99, symmetric vs asymmetric.*
 
 ### Findings:
 
@@ -566,7 +595,7 @@ The cost is in latency, not buffer — reorder-queue occupancy barely moves (p99
 # 6. Reproducibility Assessment of the Paper
 
 
-The paper is highly reproducible. The authors provide a public artifact (an NS-3–based simulator with P4 data-plane logic, referenced as [4]) together with driver scripts (run.py, autorun.sh) that regenerate the headline results — FCT slowdown (Fig. 12–13) and reorder-queue usage (Fig. 15–16) — with minimal configuration. The parameters used in the code match those reported in the paper (e.g., Table 3: θreply = 8 µs, θpath_busy = 8 µs, θ_inactive = 300 µs), which let us confirm we were running the intended configuration rather than a divergent one.
+The paper is highly reproducible. The authors provide a public artifact (an NS-3–based simulator with P4 data-plane logic, referenced as [4]) together with driver scripts (run.py, autorun.sh) that regenerate the headline results — FCT slowdown (the paper's Fig. 12–13) and reorder-queue usage (the paper's Fig. 15–16) — with minimal configuration. The parameters used in the code match those reported in the paper (e.g., the paper's Table 3: θreply = 8 µs, θpath_busy = 8 µs, θ_inactive = 300 µs), which let us confirm we were running the intended configuration rather than a divergent one.
 
 The only friction was environmental, not scientific. The artifact targets Linux; on our Apple-silicon (ARM) macOS machines the prebuilt binary is a Linux aarch64 ELF and does not run natively, so we containerized the toolchain and, to shorten turnaround on the multi-configuration sweeps (four schemes × two loads × two flow-control modes), moved execution to the Galileo100 (CINECA) HPC cluster under SLURM with the provided Singularity image. This parallelized the runs and made iteration practical.
 
@@ -576,6 +605,6 @@ Setting up each experiment was straightforward for configuration-only changes (b
 
 Through this project we confirmed that ConWeave is a credible answer to the RDMA load-balancing problem, and we found the paper both insightful and unusually precise: the parameters, mechanisms, and figures described in the text map directly onto the released implementation, which made verification straightforward. The code is well-structured and easy to navigate despite having few comments — a gap that modern LLM-assisted reading made non-blocking. Within the regime it was designed and evaluated for (a homogeneous datacenter fabric), we found no functional errors; what we did find were guardrails — assertions and a few hardcoded simplifications (a constant per-hop base-RTT, buffer-threshold arithmetic) that are correct for that regime but must be relaxed or corrected to explore outside it.
 
-This is the project's main methodological finding: ConWeave is easy to reproduce but comparatively hard to extend. Probing behavior beyond the paper's assumptions required modifying the simulator (relaxing the uniform-delay assertions, rewriting the base-RTT computation), which raises the effort of any novel experiment. Our original ambition was to surface a surprising result. We did not find a counter-intuitive failure of ConWeave — our experiments instead characterized its robustness margins (it absorbs delay heterogeneity as buffer rather than latency; it tolerates link loss better than ECMP). But the deeper value came from the analysis itself: it led us to the paper's own acknowledged open problem — that ConWeave's benefit is bounded by finite reorder-queue resources, and that admission control / fallback under resource exhaustion is left as future work (S7). Identifying precisely where a real contribution lies, even without implementing it under our time constraints, was the more meaningful outcome.
+This is the project's main methodological finding: ConWeave is easy to reproduce but comparatively hard to extend. Probing behavior beyond the paper's assumptions required modifying the simulator (relaxing the uniform-delay assertions, rewriting the base-RTT computation), which raises the effort of any novel experiment. Our original ambition was to surface a surprising result. We did not find an outright failure of ConWeave, but the delay-heterogeneity experiment surfaced a genuine fragility: when path delays exceed its θ_reply cutoff, the damage appears in its RTT-based rerouting decisions — latency, not buffer — narrowing (though not erasing) its advantage over ECMP. Loss tolerance went the other way: it handles grey failures better than ECMP. But the deeper value came from the analysis itself: it led us to the paper's own acknowledged open problem — that ConWeave's benefit is bounded by finite reorder-queue resources, and that admission control / fallback under resource exhaustion is left as future work (S7). Identifying precisely where a real contribution lies, even without implementing it under our time constraints, was the more meaningful outcome.
 
 Finally, our early experiments aimed at ConWeave's deployability — asking whether it retains an advantage on cheaper, shallower-buffer switches. This exposed a broader real-world tension. ConWeave requires a programmable-switch data plane (the paper targets the Intel Tofino2); such hardware is specialized and costly, and the programmable-switch ecosystem is itself uncertain (Intel wound down the Tofino line in 2023), while the RDMA-NIC side is dominated by a single vendor (Nvidia, post-Mellanox). The paper anticipates part of this concern by arguing ConWeave's logic can migrate to SmartNICs/DPUs (S5), but that portability is not demonstrated. These constraints, more than any algorithmic weakness, are what most limit ConWeave as a near-term production solution — and pursuing them is what made the project scientifically richer than a pure reproduction would have been.
