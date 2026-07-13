@@ -550,7 +550,7 @@ symmetric vs asymmetric.</p>
 | Symmetric  | 1055              |
 | Asymmetric | 1095              |
 
-*Table 5 — ConWeave reorder-queue occupancy.*
+*Table 5 — ConWeave reorder-queue occupancy. The CW VOQ p99 is the x-value where the CDF reaches 0.99 - Image CDF symmetric vs asymmetric*
 
 ### Findings:
 
