@@ -100,12 +100,41 @@ python3 plot_greyfailure_sensitivity.py \
     --output_dir ../figures                  # report Figures 13-14, Table 3
 ```
 
+**Delay-heterogeneity experiment (report S5.3).** Unlike the sweeps above,
+this experiment is not configuration-only: it needs (a) a modified topology
+file and (b) a small patch to the simulator.
+
+- *Topology*: starting from `leaf_spine_128_100G_OS2`, split the eight spines
+  into "near" (1000 ns link delay) and "far" (4000 ns), applied uniformly to
+  all ToR-spine links, so every ToR reaches every destination through four
+  near and four far spines.
+- *Code patch*: the released simulator computes each destination's base RTT
+  as a hardcoded per-hop constant (`one_hop_delay * hops` in
+  `src/point-to-point/model/network-load-balance.cc`), which is only valid
+  under uniform delay; replace it with the sum of the real per-link channel
+  delays along the path (see report S5.3, "Implementation", for the exact
+  change). The uniform-delay initialization assertions must be relaxed
+  accordingly.
+
+The asymmetric runs are then launched like any other run (step 3) with the
+modified topology, and the `asym_*` figures in `figures/` are produced with
+the same FCT/queue analysis pipeline as the reproduction figures, overlaying
+the symmetric baseline and the asymmetric runs.
+
 Each script's docstring documents the exact input format it expects. The
 figures used by the report are stored in `figures/`.
 
 ## 5. Build the report PDF
 
-Requires `md2pdf` (`python3 -m pip install "md2pdf[cli]"`):
+Requires `md2pdf` in a virtualenv at the repo root (the Makefile invokes
+`.venv/bin/md2pdf`):
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install "md2pdf[cli]"
+```
+
+Then:
 
 ```bash
 make        # renders report.md -> report.pdf

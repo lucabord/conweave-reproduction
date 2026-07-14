@@ -31,7 +31,7 @@ RDMA (Remote Direct Memory Access) lets one server's NIC (RNIC) write directly i
 
 ### **Why do existing load balancers fail?**
 
-The simplest approach, ECMP (Equal-Cost Multi-Path), assigns each flow to one fixed path — safe for RDMA (no reordering), but it creates hot-spots when multiple large flows share a link. Smarter schemes like CONGA or LetFlow reroute traffic mid-flow to avoid congestion, but doing so inevitably delivers some packets out of order, exactly what RDMA cannot handle. Network operators must therefore choose between good load balance and RDMA safety: they cannot have both.
+The simplest approach, ECMP (Equal-Cost Multi-Path), assigns each flow to one fixed path, safe for RDMA (no reordering), but it creates hot-spots when multiple large flows share a link. Smarter schemes like CONGA or LetFlow reroute traffic mid-flow to avoid congestion, but doing so inevitably delivers some packets out of order, exactly what RDMA cannot handle. Network operators must therefore choose between good load balance and RDMA safety: they cannot have both.
 
 ### **ConWeave's solution.** 
 
@@ -91,7 +91,7 @@ only wall-clock time, never the results.
 - Post-processing and plotting: Python 3, numpy 2.5.0, matplotlib 3.11.0.
 
 **Simulation parameters.**
-- Topology: `leaf_spine_128_100G_OS2` — 128 servers on a 2:1 oversubscribed
+- Topology: `leaf_spine_128_100G_OS2`, 128 servers on a 2:1 oversubscribed
   leaf-spine fabric, all links at 100 Gbps.
 - Workload: `AliStorage2019` flow-size distribution (real-world datacenter
   trace), Poisson arrivals at **50 %** and **80 % load**.
@@ -170,9 +170,9 @@ were compared across schemes and against the expected ≈930 k baseline to catch
 truncated or diverging runs, and the uplink-imbalance CDF (Figure 10)
 independently confirms that the FCT gains come from the claimed mechanism
 (better traffic spreading) rather than an artifact of the metric. The issues
-we had to debug were environmental rather than scientific — the artifact
+we had to debug were environmental rather than scientific, the artifact
 targets x86 Linux and some long sweeps exhausted the default container
-memory — and were solved by the containerized setup described in S3 and by
+memory, and were solved by the containerized setup described in S3 and by
 moving the sweeps to the HPC cluster (S6 discusses this in more detail).
 
 
@@ -327,7 +327,7 @@ Figure 13.
   </div>
 </center>
 
-At 50 % load the scheme ordering is unchanged from the Lossless case — ECMP
+At 50 % load the scheme ordering is unchanged from the Lossless case, ECMP
 and LetFlow worst, CONGA intermediate, ConWeave best — with ConWeave's
 advantage again largest at the tail and for the larger flow sizes.
 At 80 % load the same amplification seen under Lossless appears here too:
@@ -590,7 +590,7 @@ The cost is in latency, not buffer — reorder-queue occupancy barely moves (p99
 
 ### Caveat.
 
-4000 ns is campus-scale (≈800 m), beyond the intra-datacenter regime the paper targets, and it deliberately pushes the far-path RTT past θ_reply — so this characterises the boundary of ConWeave's timing assumptions, not a datacenter-representative deployment. Results are for one workload at 80 % load, Lossless. A single seed per point (no error bars). The p99 metric is congestion-normalised, so it understates propagation effects — the average is the more sensitive FCT signal here.
+4000 ns is campus-scale (≈800 m), beyond the intra-datacenter regime the paper targets, and it deliberately pushes the far-path RTT past θ_reply, so this characterises the boundary of ConWeave's timing assumptions, not a datacenter-representative deployment. Results are for one workload at 80 % load, Lossless. A single seed per point (no error bars). The p99 metric is congestion-normalised, so it understates propagation effects, the average is the more sensitive FCT signal here.
 
 # 6. Reproducibility Assessment of the Paper
 
@@ -599,12 +599,12 @@ The paper is highly reproducible. The authors provide a public artifact (an NS-3
 
 The only friction was environmental, not scientific. The artifact targets Linux; on our Apple-silicon (ARM) macOS machines the prebuilt binary is a Linux aarch64 ELF and does not run natively, so we containerized the toolchain and, to shorten turnaround on the multi-configuration sweeps (four schemes × two loads × two flow-control modes), moved execution to the Galileo100 (CINECA) HPC cluster under SLURM with the provided Singularity image. This parallelized the runs and made iteration practical.
 
-Setting up each experiment was straightforward for configuration-only changes (buffer size, per-link error rate, load). The delay-heterogeneity experiment required more engineering: the simulator encodes a uniform-delay assumption through initialization assertions and a constant per-hop base-RTT computation, both of which had to be relaxed and corrected before a heterogeneous topology could be simulated meaningfully. Beyond the code, that experiment also demanded non-trivial design decisions about the topology itself — which links to perturb, how large a delay spread to use, and how to keep the construction physically interpretable — which made it the most involved of the three.
+Setting up each experiment was straightforward for configuration-only changes (buffer size, per-link error rate, load). The delay-heterogeneity experiment required more engineering: the simulator encodes a uniform-delay assumption through initialization assertions and a constant per-hop base-RTT computation, both of which had to be relaxed and corrected before a heterogeneous topology could be simulated meaningfully. Beyond the code, that experiment also demanded non-trivial design decisions about the topology itself, which links to perturb, how large a delay spread to use, and how to keep the construction physically interpretable, which made it the most involved of the three.
 
 # 7. Conclusion
 
-Through this project we confirmed that ConWeave is a credible answer to the RDMA load-balancing problem, and we found the paper both insightful and unusually precise: the parameters, mechanisms, and figures described in the text map directly onto the released implementation, which made verification straightforward. The code is well-structured and easy to navigate despite having few comments — a gap that modern LLM-assisted reading made non-blocking. Within the regime it was designed and evaluated for (a homogeneous datacenter fabric), we found no functional errors; what we did find were guardrails — assertions and a few hardcoded simplifications (a constant per-hop base-RTT, buffer-threshold arithmetic) that are correct for that regime but must be relaxed or corrected to explore outside it.
+Through this project we confirmed that ConWeave is a credible answer to the RDMA load-balancing problem, and we found the paper both insightful and unusually precise: the parameters, mechanisms, and figures described in the text map directly onto the released implementation, which made verification straightforward. The code is well-structured and easy to navigate despite having few comments, a gap that modern LLM-assisted reading made non-blocking. Within the regime it was designed and evaluated for (a homogeneous datacenter fabric), we found no functional errors; what we did find were guardrails, assertions and a few hardcoded simplifications (a constant per-hop base-RTT, buffer-threshold arithmetic) that are correct for that regime but must be relaxed or corrected to explore outside it.
 
-This is the project's main methodological finding: ConWeave is easy to reproduce but comparatively hard to extend. Probing behavior beyond the paper's assumptions required modifying the simulator (relaxing the uniform-delay assertions, rewriting the base-RTT computation), which raises the effort of any novel experiment. Our original ambition was to surface a surprising result. We did not find an outright failure of ConWeave, but the delay-heterogeneity experiment surfaced a genuine fragility: when path delays exceed its θ_reply cutoff, the damage appears in its RTT-based rerouting decisions — latency, not buffer — narrowing (though not erasing) its advantage over ECMP. Loss tolerance went the other way: it handles grey failures better than ECMP. But the deeper value came from the analysis itself: it led us to the paper's own acknowledged open problem — that ConWeave's benefit is bounded by finite reorder-queue resources, and that admission control / fallback under resource exhaustion is left as future work (S7). Identifying precisely where a real contribution lies, even without implementing it under our time constraints, was the more meaningful outcome.
+This is the project's main methodological finding: ConWeave is easy to reproduce but comparatively hard to extend. Probing behavior beyond the paper's assumptions required modifying the simulator (relaxing the uniform-delay assertions, rewriting the base-RTT computation), which raises the effort of any novel experiment. Our original ambition was to surface a surprising result. We did not find an outright failure of ConWeave, but the delay-heterogeneity experiment surfaced a genuine fragility: when path delays exceed its θ_reply cutoff, the damage appears in its RTT-based rerouting decisions, latency, not buffer, narrowing (though not erasing) its advantage over ECMP. Loss tolerance went the other way: it handles grey failures better than ECMP. But the deeper value came from the analysis itself: it led us to the paper's own acknowledged open problem, that ConWeave's benefit is bounded by finite reorder-queue resources, and that admission control / fallback under resource exhaustion is left as future work (S7). Identifying precisely where a real contribution lies, even without implementing it under our time constraints, was the more meaningful outcome.
 
-Finally, our early experiments aimed at ConWeave's deployability — asking whether it retains an advantage on cheaper, shallower-buffer switches. This exposed a broader real-world tension. ConWeave requires a programmable-switch data plane (the paper targets the Intel Tofino2); such hardware is specialized and costly, and the programmable-switch ecosystem is itself uncertain (Intel wound down the Tofino line in 2023), while the RDMA-NIC side is dominated by a single vendor (Nvidia, post-Mellanox). The paper anticipates part of this concern by arguing ConWeave's logic can migrate to SmartNICs/DPUs (S5), but that portability is not demonstrated. These constraints, more than any algorithmic weakness, are what most limit ConWeave as a near-term production solution — and pursuing them is what made the project scientifically richer than a pure reproduction would have been.
+Finally, our early experiments aimed at ConWeave's deployability, asking whether it retains an advantage on cheaper, shallower-buffer switches. This exposed a broader real-world tension. ConWeave requires a programmable-switch data plane (the paper targets the Intel Tofino2); such hardware is specialized and costly, and the programmable-switch ecosystem is itself uncertain (Intel wound down the Tofino line in 2023), while the RDMA-NIC side is dominated by a single vendor (Nvidia, post-Mellanox). The paper anticipates part of this concern by arguing ConWeave's logic can migrate to SmartNICs/DPUs (S5), but that portability is not demonstrated. These constraints, more than any algorithmic weakness, are what most limit ConWeave as a near-term production solution, and pursuing them is what made the project scientifically richer than a pure reproduction would have been.

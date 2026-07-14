@@ -7,7 +7,7 @@
 
 DYLD := DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib
 # Invoke via the venv python: a shebang can't point into a path with spaces.
-MD2PDF := ../ConWeave-Reproduction/.venv/bin/python ../ConWeave-Reproduction/.venv/bin/md2pdf
+MD2PDF := .venv/bin/python .venv/bin/md2pdf
 
 default: report.pdf
 
