@@ -11,7 +11,7 @@ MD2PDF := .venv/bin/python .venv/bin/md2pdf
 
 default: report.pdf
 
-report.pdf: report.md
+report.pdf: README.md
 	$(DYLD) $(MD2PDF) -i $< -o $@
 
 .PHONY: clean
